@@ -59,12 +59,23 @@
         <div id="market"></div>
         <div id="event-log"></div>
         <div>
-            <button onclick="buySell('buy')">Buy</button>
-            <button onclick="buySell('sell')">Sell</button>
+            <button onclick="performTrade()">Trade</button>
             <button onclick="tweet()">Tweet</button>
             <button onclick="travel()">Travel</button>
             <button onclick="loan()">Loan</button>
             <button onclick="nextDay()">Next Day</button>
+        </div>
+        <div id="trade-inputs">
+            <label>Item: <select id="item-select"></select></label>
+            <label>Quantity: <input type="number" id="qty-input" min="1"></label>
+            <label><input type="radio" name="action" value="buy" checked> Buy</label>
+            <label><input type="radio" name="action" value="sell"> Sell</label>
+        </div>
+        <div id="travel-input">
+            <label>Travel to: <select id="location-select"></select></label>
+        </div>
+        <div id="loan-input">
+            <label>Loan amount: <input type="number" id="loan-amount" min="1"></label>
         </div>
     </div>
 
@@ -110,6 +121,23 @@
             ["Flame on 🔥", 0.5, 2.0]
         ];
 
+        // Populate selects
+        const itemSelect = document.getElementById("item-select");
+        Object.keys(basePrices).forEach(item => {
+            let option = document.createElement("option");
+            option.value = item;
+            option.text = item;
+            itemSelect.appendChild(option);
+        });
+
+        const locationSelect = document.getElementById("location-select");
+        Object.keys(locations).forEach(loc => {
+            let option = document.createElement("option");
+            option.value = loc;
+            option.text = loc;
+            locationSelect.appendChild(option);
+        });
+
         function getPrices() {
             let prices = { ...basePrices };
             for (let item in prices) {
@@ -134,13 +162,13 @@
             log.scrollTop = log.scrollHeight;
         }
 
-        function buySell(action) {
-            let prices = getPrices();
-            let item = prompt(`${action.capitalize()} what? (e.g., Tesla Stock)`);
-            if (!prices[item]) return logEvent("Huh? Try a real item!");
-            let qty = parseInt(prompt(`How many ${item}?`));
-            if (isNaN(qty) || qty <= 0) return logEvent("Numbers only, no negatives!");
+        function performTrade() {
+            let action = document.querySelector('input[name="action"]:checked').value;
+            let item = document.getElementById("item-select").value;
+            let qty = parseInt(document.getElementById("qty-input").value);
+            if (!item || isNaN(qty) || qty <= 0) return logEvent("Select item and valid quantity!");
             
+            let prices = getPrices();
             if (action === "buy") {
                 let cost = prices[item] * qty;
                 if (cost > cash) logEvent("Too broke!");
@@ -181,7 +209,7 @@
         }
 
         function travel() {
-            let newLoc = prompt(`Go where? ${Object.keys(locations).join(", ")}`);
+            let newLoc = document.getElementById("location-select").value;
             if (!locations[newLoc] || newLoc === location) return logEvent("Bad spot or already there!");
             if (cash < 50000) return logEvent("Need $50K to jet!");
             cash -= 50000;
@@ -191,8 +219,8 @@
         }
 
         function loan() {
-            let amount = parseInt(prompt("Loan how much?"));
-            if (isNaN(amount) || amount <= 0) return logEvent("Numbers, no tiny loans!");
+            let amount = parseInt(document.getElementById("loan-amount").value);
+            if (isNaN(amount) || amount <= 0) return logEvent("Enter a valid loan amount!");
             cash += amount;
             debt += amount;
             logEvent(`Loaned $${amount.toLocaleString()}! Debt: $${debt.toLocaleString()}`);
@@ -209,10 +237,6 @@
                 prices[item] *= multiplier;
             } else if (type === "rep") {
                 reputation = Math.max(0, Math.min(100, reputation + effect()));
-            } else if (type === "mixed") {
-                let [[item, multiplier], repChange] = effect();
-                prices[item] *= multiplier;
-                reputation = Math.max(0, Math.min(100, reputation + repChange));
             }
             updateDisplay(prices);
         }
@@ -235,18 +259,13 @@
 
         function endGame(prices) {
             let netWorth = cash + Object.entries(inventory).reduce((sum, [item, qty]) => sum + prices[item] * qty, 0) - debt;
-            let result = `Game Over: Day ${day-1}\nNet Worth: $${netWorth.toLocaleString()}\n`;
+            let result = `Game Over: Day ${day-1}<br>Net Worth: $${netWorth.toLocaleString()}<br>`;
             if (netWorth >= 100000000000) result += "HUSTLE KING! Mars is yours! 👑";
             else if (reputation <= 0) result += "CANCELED! Meme grave! 💀";
             else result += "Broke or bust! 📉";
             logEvent(result);
             document.querySelectorAll("button").forEach(btn => btn.disabled = true);
         }
-
-        // Helper to capitalize strings
-        String.prototype.capitalize = function() {
-            return this.charAt(0).toUpperCase() + this.slice(1);
-        };
 
         // Initial render
         updateDisplay(getPrices());
