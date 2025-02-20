@@ -81,194 +81,212 @@
 
     <script>
         // Game state
-        let cash = 1000000;
-        let debt = 0;
-        let reputation = 100;
-        let day = 1;
-        const maxDays = 30;
-        let inventory = { "Tesla Stock": 0, "Dogecoin": 0, "Flamethrowers": 0, "Neuralink Chips": 0, "Mars Contracts": 0 };
-        let location = "Fremont";
-        let achievements = [];
-        let tweetEffect = null;
+let cash = 1000000; // Starting with $1M
+let debt = 0;
+let reputation = 100;
+let day = 1;
+const maxDays = 30;
+let inventory = { "Tesla Stock": 0, "Dogecoin": 0, "Flamethrowers": 0, "Neuralink Chips": 0, "Mars Contracts": 0 };
+let location = "Fremont";
+let tweetEffect = null;
+let prices; // Global prices object
 
-        const basePrices = {
-            "Tesla Stock": 150,
-            "Dogecoin": 0.05,
-            "Flamethrowers": 500,
-            "Neuralink Chips": 10000,
-            "Mars Contracts": 5000000
-        };
+// Base prices for items
+const basePrices = {
+    "Tesla Stock": 150,
+    "Dogecoin": 0.05,
+    "Flamethrowers": 500,
+    "Neuralink Chips": 10000,
+    "Mars Contracts": 5000000
+};
 
-        const locations = {
-            "Fremont": "Tesla 🚗",
-            "Cape Canaveral": "SpaceX 🚀",
-            "Twitter HQ": "Tweets 🐦"
-        };
+// Location effects and display names
+const locations = {
+    "Fremont": "Tesla 🚗",
+    "Cape Canaveral": "SpaceX 🚀",
+    "Twitter HQ": "Tweets 🐦"
+};
 
-        const events = [
-            ["SEC fines $20M! 📉", () => -20000000, "cash"],
-            ["Rogan weed sesh! Doge +300%! 🌿", () => ["Dogecoin", 3.0], "market"],
-            ["Grimes wants $10M! 👶", () => -10000000, "cash"],
-            ["Tesla bots dance. Stock -30%! 🤖", () => ["Tesla Stock", 0.7], "market"],
-            ["Starship lands! Mars +100%! 🌍", () => ["Mars Contracts", 2.0], "market"],
-            ["Woke bots rage. Rep -15%! 😡", () => -15, "rep"]
-        ];
+// Random events that shake things up
+const events = [
+    ["SEC fines $20M! 📉", () => -20000000, "cash"],
+    ["Rogan weed sesh! Doge +300%! 🌿", () => ["Dogecoin", 3.0], "market"],
+    ["Grimes wants $10M! 👶", () => -10000000, "cash"],
+    ["Tesla bots dance. Stock -30%! 🤖", () => ["Tesla Stock", 0.7], "market"],
+    ["Starship lands! Mars +100%! 🌍", () => ["Mars Contracts", 2.0], "market"],
+    ["Woke bots rage. Rep -15%! 😡", () => -15, "rep"]
+];
 
-        const tweets = [
-            ["MOON! 🌕", 0.6, 2.5],
-            ["420 🔥", 0.5, 3.0],
-            ["Tesla rules 🚗", 0.7, 1.8],
-            ["Flame on 🔥", 0.5, 2.0]
-        ];
+// Tweet options: [text, success chance, price multiplier]
+const tweets = [
+    ["MOON! 🌕", 0.6, 2.5],
+    ["420 🔥", 0.5, 3.0],
+    ["Tesla rules 🚗", 0.7, 1.8],
+    ["Flame on 🔥", 0.5, 2.0]
+];
 
-        // Populate selects
-        const itemSelect = document.getElementById("item-select");
-        Object.keys(basePrices).forEach(item => {
-            let option = document.createElement("option");
-            option.value = item;
-            option.text = item;
-            itemSelect.appendChild(option);
-        });
+// Populate the item dropdown
+const itemSelect = document.getElementById("item-select");
+Object.keys(basePrices).forEach(item => {
+    let option = document.createElement("option");
+    option.value = item;
+    option.text = item;
+    itemSelect.appendChild(option);
+});
 
-        const locationSelect = document.getElementById("location-select");
-        Object.keys(locations).forEach(loc => {
-            let option = document.createElement("option");
-            option.value = loc;
-            option.text = loc;
-            locationSelect.appendChild(option);
-        });
+// Populate the location dropdown
+const locationSelect = document.getElementById("location-select");
+Object.keys(locations).forEach(loc => {
+    let option = document.createElement("option");
+    option.value = loc;
+    option.text = loc;
+    locationSelect.appendChild(option);
+});
 
-        function getPrices() {
-            let prices = { ...basePrices };
-            for (let item in prices) {
-                let fluctuation = Math.random() * (1.3 - 0.7) + 0.7;
-                if (location === "Fremont" && item === "Tesla Stock") fluctuation *= 0.9;
-                else if (location === "Cape Canaveral" && item === "Mars Contracts") fluctuation *= 0.85;
-                else if (location === "Twitter HQ" && item === "Dogecoin") fluctuation *= Math.random() * (1.5 - 0.5) + 0.5;
-                prices[item] *= fluctuation;
-            }
-            return prices;
+// Calculate prices based on location with random fluctuations
+function getPrices() {
+    let newPrices = { ...basePrices };
+    for (let item in newPrices) {
+        let fluctuation = Math.random() * (1.3 - 0.7) + 0.7; // 70% to 130%
+        if (location === "Fremont" && item === "Tesla Stock") fluctuation *= 0.9;
+        else if (location === "Cape Canaveral" && item === "Mars Contracts") fluctuation *= 0.85;
+        else if (location === "Twitter HQ" && item === "Dogecoin") fluctuation *= Math.random() * (1.5 - 0.5) + 0.5;
+        newPrices[item] *= fluctuation;
+    }
+    return newPrices;
+}
+
+// Update the display with current stats and market prices
+function updateDisplay() {
+    let inv = Object.entries(inventory)
+        .filter(([_, v]) => v > 0)
+        .map(([k, v]) => `${k}:${v}`)
+        .join(", ") || "None";
+    document.getElementById("stats").innerHTML = `Day ${day} | ${locations[location]}<br>💰 $${cash.toLocaleString()} | 💸 $${debt.toLocaleString()} | ⭐ ${reputation}% | 🎒 ${inv}`;
+    document.getElementById("market").innerHTML = "Market: " + Object.entries(prices)
+        .map(([k, v]) => `${k.slice(0, 4)}:$${v.toFixed(2)}`)
+        .join(" | ");
+}
+
+// Log messages to the event feed
+function logEvent(message) {
+    let log = document.getElementById("event-log");
+    log.innerHTML += message + "<br>";
+    log.scrollTop = log.scrollHeight;
+}
+
+// Handle buying or selling items
+function performTrade() {
+    let action = document.querySelector('input[name="action"]:checked').value;
+    let item = document.getElementById("item-select").value;
+    let qty = parseInt(document.getElementById("qty-input").value);
+
+    if (!item || isNaN(qty) || qty <= 0) return logEvent("Select item and valid quantity!");
+
+    if (action === "buy") {
+        let cost = prices[item] * qty;
+        if (cost > cash) return logEvent("Too broke!");
+        cash -= cost;
+        inventory[item] += qty;
+        logEvent(`Bought ${qty} ${item} for $${cost.toLocaleString()}!`);
+    } else {
+        if (inventory[item] < qty) return logEvent("Don’t own enough!");
+        let revenue = prices[item] * qty;
+        cash += revenue;
+        inventory[item] -= qty;
+        logEvent(`Sold ${qty} ${item} for $${revenue.toLocaleString()}!`);
+    }
+    updateDisplay();
+}
+
+// Send a tweet with a chance to affect next day’s prices
+function tweet() {
+    let [tweetText, chance, multiplier] = tweets[Math.floor(Math.random() * tweets.length)];
+    logEvent(`Tweet: "${tweetText}"`);
+    if (Math.random() < chance) {
+        let item = Object.keys(basePrices)[Math.floor(Math.random() * Object.keys(basePrices).length)];
+        tweetEffect = { item, multiplier };
+        logEvent(`${item} will pump ${Math.round((multiplier - 1) * 100)}% next day!`);
+    } else {
+        reputation -= Math.floor(Math.random() * 11) + 10;
+        logEvent(`Flop! Rep -${reputation > 0 ? 10 : 20}%`);
+        if (Math.random() < 0.3) {
+            cash = Math.max(0, cash - 1000000);
+            logEvent("SEC fines $1M!");
         }
+    }
+    updateDisplay();
+}
 
-        function updateDisplay(prices) {
-            let inv = Object.entries(inventory).filter(([_, v]) => v > 0).map(([k, v]) => `${k}:${v}`).join(", ") || "None";
-            document.getElementById("stats").innerHTML = `Day ${day} | ${locations[location]}<br>💰 $${cash.toLocaleString()} | 💸 $${debt.toLocaleString()} | ⭐ ${reputation}% | 🎒 ${inv}`;
-            document.getElementById("market").innerHTML = "Market: " + Object.entries(prices).map(([k, v]) => `${k.slice(0, 4)}:$${v.toFixed(2)}`).join(" | ");
-        }
+// Travel to a new location
+function travel() {
+    let newLoc = document.getElementById("location-select").value;
+    if (newLoc === location) return logEvent("Already there!");
+    if (cash < 50000) return logEvent("Need $50K to jet!");
+    cash -= 50000;
+    location = newLoc;
+    logEvent(`Moved to ${locations[location]} for $50K! Next day's prices will adjust.`);
+    updateDisplay();
+}
 
-        function logEvent(message) {
-            let log = document.getElementById("event-log");
-            log.innerHTML += message + "<br>";
-            log.scrollTop = log.scrollHeight;
-        }
+// Take a loan
+function loan() {
+    let amount = parseInt(document.getElementById("loan-amount").value);
+    if (isNaN(amount) || amount <= 0) return logEvent("Enter a valid loan amount!");
+    cash += amount;
+    debt += amount;
+    logEvent(`Loaned $${amount.toLocaleString()}! Debt: $${debt.toLocaleString()}`);
+    updateDisplay();
+}
 
-        function performTrade() {
-            let action = document.querySelector('input[name="action"]:checked').value;
-            let item = document.getElementById("item-select").value;
-            let qty = parseInt(document.getElementById("qty-input").value);
-            if (!item || isNaN(qty) || qty <= 0) return logEvent("Select item and valid quantity!");
-            
-            let prices = getPrices();
-            if (action === "buy") {
-                let cost = prices[item] * qty;
-                if (cost > cash) logEvent("Too broke!");
-                else {
-                    cash -= cost;
-                    inventory[item] += qty;
-                    logEvent(`Bought ${qty} ${item} for $${cost.toLocaleString()}!`);
-                }
-            } else {
-                if (inventory[item] < qty) logEvent("Don’t own enough!");
-                else {
-                    let revenue = prices[item] * qty;
-                    cash += revenue;
-                    inventory[item] -= qty;
-                    logEvent(`Sold ${qty} ${item} for $${revenue.toLocaleString()}!`);
-                }
-            }
-            updateDisplay(prices);
-        }
+// Trigger a random event
+function randomEvent() {
+    let [event, effect, type] = events[Math.floor(Math.random() * events.length)];
+    logEvent(event);
+    if (type === "cash") {
+        cash = Math.max(0, cash + effect());
+    } else if (type === "market") {
+        let [item, multiplier] = effect();
+        prices[item] *= multiplier;
+        logEvent(`${item} price adjusted!`);
+    } else if (type === "rep") {
+        reputation = Math.max(0, Math.min(100, reputation + effect()));
+    }
+    updateDisplay();
+}
 
-        function tweet() {
-            let prices = getPrices();
-            let [tweet, chance, multiplier] = tweets[Math.floor(Math.random() * tweets.length)];
-            logEvent(`Tweet: '${tweet}'`);
-            if (Math.random() < chance) {
-                let item = Object.keys(basePrices)[Math.floor(Math.random() * Object.keys(basePrices).length)];
-                tweetEffect = { item, multiplier };
-                logEvent(`${item} pumps ${Math.round((multiplier - 1) * 100)}%!`);
-            } else {
-                reputation -= Math.floor(Math.random() * 11) + 10;
-                logEvent(`Flop! Rep -${reputation > 0 ? 10 : 20}%`);
-                if (Math.random() < 0.3) {
-                    cash = Math.max(0, cash - 1000000);
-                    logEvent("SEC fines $1M!");
-                }
-            }
-            updateDisplay(prices);
-        }
+// Advance to the next day
+function nextDay() {
+    if (tweetEffect) {
+        prices[tweetEffect.item] *= tweetEffect.multiplier;
+        logEvent(`Tweet effect: ${tweetEffect.item} pumped by ${Math.round((tweetEffect.multiplier - 1) * 100)}%!`);
+        tweetEffect = null;
+    }
+    randomEvent();
+    prices = getPrices(); // New prices for the next day
+    debt = Math.floor(debt * 1.15); // 15% interest on debt
+    day++;
+    if (day > maxDays || reputation <= 0 || cash < 0) {
+        endGame();
+    } else {
+        updateDisplay();
+    }
+}
 
-        function travel() {
-            let newLoc = document.getElementById("location-select").value;
-            if (!locations[newLoc] || newLoc === location) return logEvent("Bad spot or already there!");
-            if (cash < 50000) return logEvent("Need $50K to jet!");
-            cash -= 50000;
-            location = newLoc;
-            logEvent(`Moved to ${locations[location]} for $50K!`);
-            updateDisplay(getPrices());
-        }
+// End the game and show results
+function endGame() {
+    let netWorth = cash + Object.entries(inventory).reduce((sum, [item, qty]) => sum + prices[item] * qty, 0) - debt;
+    let result = `Game Over: Day ${day-1}<br>Net Worth: $${netWorth.toLocaleString()}<br>`;
+    if (netWorth >= 100000000000) result += "HUSTLE KING! Mars is yours! 👑";
+    else if (reputation <= 0) result += "CANCELED! Meme grave! 💀";
+    else result += "Broke or bust! 📉";
+    logEvent(result);
+    document.querySelectorAll("button").forEach(btn => btn.disabled = true);
+}
 
-        function loan() {
-            let amount = parseInt(document.getElementById("loan-amount").value);
-            if (isNaN(amount) || amount <= 0) return logEvent("Enter a valid loan amount!");
-            cash += amount;
-            debt += amount;
-            logEvent(`Loaned $${amount.toLocaleString()}! Debt: $${debt.toLocaleString()}`);
-            updateDisplay(getPrices());
-        }
-
-        function randomEvent(prices) {
-            let [event, effect, type] = events[Math.floor(Math.random() * events.length)];
-            logEvent(event);
-            if (type === "cash") {
-                cash = Math.max(0, cash + effect());
-            } else if (type === "market") {
-                let [item, multiplier] = effect();
-                prices[item] *= multiplier;
-            } else if (type === "rep") {
-                reputation = Math.max(0, Math.min(100, reputation + effect()));
-            }
-            updateDisplay(prices);
-        }
-
-        function nextDay() {
-            let prices = getPrices();
-            if (tweetEffect) {
-                prices[tweetEffect.item] *= tweetEffect.multiplier;
-                tweetEffect = null;
-            }
-            randomEvent(prices);
-            debt = Math.floor(debt * 1.15);
-            day++;
-            if (day > maxDays || reputation <= 0 || cash < 0) {
-                endGame(prices);
-            } else {
-                updateDisplay(prices);
-            }
-        }
-
-        function endGame(prices) {
-            let netWorth = cash + Object.entries(inventory).reduce((sum, [item, qty]) => sum + prices[item] * qty, 0) - debt;
-            let result = `Game Over: Day ${day-1}<br>Net Worth: $${netWorth.toLocaleString()}<br>`;
-            if (netWorth >= 100000000000) result += "HUSTLE KING! Mars is yours! 👑";
-            else if (reputation <= 0) result += "CANCELED! Meme grave! 💀";
-            else result += "Broke or bust! 📉";
-            logEvent(result);
-            document.querySelectorAll("button").forEach(btn => btn.disabled = true);
-        }
-
-        // Initial render
-        updateDisplay(getPrices());
+// Initialize the game
+prices = getPrices();
+updateDisplay();
     </script>
 </body>
 </html>
